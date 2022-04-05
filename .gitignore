@@ -1,3 +1,5 @@
+*.tar.xz
+
 # Offline data, runtime logs #
 ##############################
 Player-Data
