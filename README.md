@@ -48,7 +48,7 @@ parties and malicious security.
 On Linux, this requires a working toolchain and [all
 requirements](#requirements). On Ubuntu, the following might suffice:
 ```
-apt-get install automake build-essential git libboost-dev libboost-thread-dev libntl-dev libsodium-dev libssl-dev libtool m4 python3 texinfo yasm
+sudo apt-get install automake build-essential git libboost-dev libboost-thread-dev libntl-dev libsodium-dev libssl-dev libtool m4 python3 texinfo yasm
 ```
 On MacOS, this requires [brew](https://brew.sh) to be installed,
 which will be used for all dependencies.
@@ -66,6 +66,21 @@ echo 1 2 3 4 > Player-Data/Input-P0-0
 echo 1 2 3 4 > Player-Data/Input-P1-0
 Scripts/mascot.sh tutorial
 ```
+
+#### TL;DR (Docker)
+Build a docker image for `mascot-party.x`:
+
+```
+docker build --tag mpspdz:mascot-party --build-arg machine=mascot-party.x .
+```
+
+Run the [the tutorial](Programs/Source/tutorial.mpc):
+
+```
+docker run --rm -it mpspdz:mascot-party ./Scripts/mascot.sh tutorial
+```
+
+See the [`Dockerfile`](./Dockerfile) for examples of how it can be used.
 
 #### Preface
 
@@ -88,6 +103,7 @@ The following table lists all protocols that are fully supported.
 | Semi-honest, dishonest majority | [Semi / Hemi / Temi / Soho](#secret-sharing) | [Semi2k](#secret-sharing) | [SemiBin](#secret-sharing) | [Yao's GC](#yaos-garbled-circuits) / [BMR](#bmr) |
 | Malicious, honest majority | [Shamir / Rep3 / PS / SY](#honest-majority) | [Brain / Rep[34] / PS / SY](#honest-majority) | [Rep3 / CCD / PS](#honest-majority) | [BMR](#bmr) |
 | Semi-honest, honest majority | [Shamir / ATLAS / Rep3](#honest-majority) | [Rep3](#honest-majority) | [Rep3 / CCD](#honest-majority) | [BMR](#bmr) |
+| Semi-honest, dealer | [Dealer](#dealer-model) | [Dealer](#dealer-model) | [Dealer](#dealer-model) | N/A |
 
 Modulo prime and modulo 2^k are the two settings that allow
 integer-like computation. For k = 64, the latter corresponds to the
@@ -123,7 +139,7 @@ there are a few things to consider:
 - Computation domain: Arithmetic protocols (modulo prime or power of
   two) are preferable for many applications because they offer integer
   addition and multiplication at low cost. However, binary circuits
-  might a better option if there is very little integer
+  might be a better option if there is very little integer
   computation. [See below](#finding-the-most-efficient-variant) to
   find the most efficient mixed-circuit variant.  Furthermore, local
   computation modulo a power of two is cheaper, but MP-SPDZ does not
@@ -158,6 +174,9 @@ there are a few things to consider:
   al.](https://eprint.iacr.org/2020/1330)). You can activate it by
   adding `program.use_trunc_pr = True` at the beginning of your
   high-level program.
+
+- Larger number of parties: ATLAS scales better than the plain Shamir
+  protocol, and Temi scale better than Hemi or Semi.
 
 - Minor variants: Some command-line options change aspects of the
   protocols such as:
@@ -283,6 +302,7 @@ compute the preprocessing time for a particular computation.
    on available options.
  - To benchmark online-only protocols or Overdrive offline phases, add the following line at the top: `MY_CFLAGS = -DINSECURE`
  - `PREP_DIR` should point to a local, unversioned directory to store preprocessing data (the default is `Player-Data` in the current directory).
+ - `SSL_DIR` should point to a local, unversioned directory to store ssl keys (the default is `Player-Data` in the current directory).
  - For homomorphic encryption with GF(2^40), set `USE_NTL = 1`.
 
 2) Run `make` to compile all the software (use the flag `-j` for faster
@@ -707,16 +727,18 @@ information.
 MP-SPDZ uses OpenSSL for secure channels. You can generate the
 necessary certificates and keys as follows:
 
-`Scripts/setup-ssl.sh [<number of parties>]`
+`Scripts/setup-ssl.sh [<number of parties> <ssl_dir>]`
 
 The programs expect the keys and certificates to be in
-`Player-Data/P<i>.key` and `Player-Data/P<i>.pem`, respectively, and
+`SSL_DIR/P<i>.key` and `SSL_DIR/P<i>.pem`, respectively, and
 the certificates to have the common name `P<i>` for player
 `<i>`. Furthermore, the relevant root certificates have to be in
-`Player-Data` such that OpenSSL can find them (run `c_rehash
-Player-Data`). The script above takes care of all this by generating
+`SSL_DIR` such that OpenSSL can find them (run `c_rehash
+<ssl_dir>`). The script above takes care of all this by generating
 self-signed certificates. Therefore, if you are running the programs
 on different hosts you will need to copy the certificate files.
+Note that `<ssl_dir>` must match `SSL_DIR` set in `CONFIG` or `CONFIG.mine`.
+Just like `SSL_DIR`, `<ssl_dir>` defaults to `Player-Data`.
 
 In the following, we will walk through running the tutorial modulo
 2^k with three parties. The other programs work similarly.
@@ -753,7 +775,23 @@ the number of parties with `-N` and the maximum number of corrupted
 parties with `-T`. The latter can be at most half the number of
 parties.
 
-### BMR
+## Dealer model
+
+This security model defines a special party that generates correlated
+randomness such as multiplication triples, which is then used by all
+other parties. MP-SPDZ implements the canonical protocol where the
+other parties run the online phase of the semi-honest protocol in
+Semi(2k/Bin) and the dealer provides all preprocessing. The security
+assumption is that dealer doesn't collude with any other party, but
+all but one of the other parties are allowed to collude. In our
+implementation, the dealer is the party with the highest number, so
+with three parties overall, Party 0 and 1 run the online phase.
+
+| Program | Sharing | Domain | Malicious | \# parties | Script |
+| --- | --- | --- | --- | --- | --- |
+| `dealer-ring-party.x` | Additive | Mod 2^k | N | 3+ | `dealer-ring.sh` |
+
+## BMR
 
 BMR (Bellare-Micali-Rogaway) is a method of generating a garbled circuit
 using another secure computation protocol. We have implemented BMR
