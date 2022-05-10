@@ -1,12 +1,10 @@
-import util
 from Compiler import types
-import math
 
 # secret integers
 value_type = sint
 
 # number of bids made by each party
-n_bids = 9
+n_bids = 450
 
 # number of parties
 n_parties = 3
@@ -26,56 +24,64 @@ n_loops = 1
 # main program
 @for_range(n_loops)
 def f(_):
-    # make a tuple with named elements 'party', 'price', and 'amount'
+    # make a tuple with named elements
     Bid = types.getNamedTupleType('party', 'price', 'amount')
 
-    # create two arrays to keeps track of the different types of bids
-    sell_bids = Bid.get_array(n_bids * n_parties, value_type)
-    buy_bids = Bid.get_array(n_bids * (n_parties - 1), value_type)
+    # create two arrays to keep track of the bids
+    sell_bids = Bid.get_array(n_bids * sellers, value_type)
+    buy_bids = Bid.get_array(n_bids * buyers, value_type)
 
     # save the bids from each player in array
     sell_index = 0
     buy_index = 0
     for i in range(n_bids * n_parties):
         if i % n_parties == 2:
-            buy_bids[buy_index] = Bid(i % n_parties, value_type.get_input_from(i % n_parties), value_type.get_input_from(i % n_parties))
+            buy_bids[buy_index] = Bid(
+                i % n_parties, 
+                value_type.get_input_from(i % n_parties), 
+                value_type.get_input_from(i % n_parties))
             buy_index += 1
         else:
-            sell_bids[sell_index] = Bid(i % n_parties, value_type.get_input_from(i % n_parties), value_type.get_input_from(i % n_parties))        
+            sell_bids[sell_index] = Bid(
+                i % n_parties, 
+                value_type.get_input_from(i % n_parties),
+                value_type.get_input_from(i % n_parties))        
             sell_index += 1
-
+            
     def calculate_supply_and_demand():
         supply = Bid.get_array(n_price_points, value_type)      
         demand = Bid.get_array(n_price_points, value_type)
 
         # calculate supply for each price point
         for i in range(n_bids * sellers):
-            pl, pr, unit  = sell_bids[i]
-            _, _, cur_supply_amount = supply[int(i / (n_price_points * sellers))]
-            supply[int(i / (n_price_points * sellers))] = Bid(pl, pr, cur_supply_amount + unit)
+            pl, pr, unit = sell_bids[i]
+            ix = int(i / ((n_bids / n_price_points) * sellers))
+            _, _, cur_supply_amount = supply[ix]
+            supply[ix] = Bid(pl, pr, cur_supply_amount + unit)
         
         # calculate demand for each price point
         for i in range(n_bids * buyers):
             pl, pr, unit = buy_bids[i]
-            _, _, cur_demand_amount = demand[int(i / (n_price_points * buyers))]
-            demand[int(i / (n_price_points * buyers))] = Bid(pl, pr, cur_demand_amount + unit)
+            ix = int(i / ((n_bids / n_price_points) * buyers))
+            _, _, cur_demand_amount = demand[ix]
+            demand[ix] = Bid(pl, pr, cur_demand_amount + unit)
         
         return (supply, demand)
-
+        
     def mcp_diff_search(arr):
         # create array with only absolute values
-        temp_array = Array(len(arr), value_type)
+        abs_arr = Array(len(arr), value_type)
         for i in range(len(arr)):
-            temp_array[i] = abs(arr[i])
+            abs_arr[i] = abs(arr[i])
 
-        # as long as the element in the aboslute array is larger, the element is updated
+        # while the item is larger, the element is updated
         j = 1
-        element = arr[0]
-        for s in range(len(temp_array) - 1):
-            element = (temp_array[s] >= temp_array[j]).if_else(arr[j], element)
+        el = arr[0]
+        for s in range(len(abs_arr) - 1):
+            el = (abs_arr[s] >= abs_arr[j]).if_else(arr[j], el)
             j += 1
 
-        return element
+        return el
 
     def find_mcp_price(price_diff_arr, element):
         index = -1
@@ -90,23 +96,26 @@ def f(_):
 
     def calculate_mcp(supply, demand):
         Difference = types.getNamedTupleType('price', 'diff')
-        prices_differences = Difference.get_array(n_price_points, value_type)
-        differences = Array(n_price_points, value_type)
+        prices_differences = Difference.get_array(
+            n_price_points, value_type)
+        diffs = Array(n_price_points, value_type)
 
-        # calculate the difference between demand and supply for
-        # price point
+        # calculate demand and supply differences
         for i in range(n_price_points):
-            differences[i] = demand[i].amount - supply[i].amount
-            prices_differences[i] = Difference(demand[i].price, demand[i].amount - supply[i].amount)
+            diffs[i] = demand[i].amount - supply[i].amount
+            prices_differences[i] = Difference(
+                demand[i].price, 
+                demand[i].amount - supply[i].amount)
 
         # sort the calculated differences in increasing order
-        sorted = sort(differences)
+        sorted_diffs = sort(diffs)
 
-        return differences, sorted, prices_differences
-
+        return sorted_diffs, prices_differences
+        
     supply_array, demand_array = calculate_supply_and_demand()
-    differences, sorted_diffs, prices_differences = calculate_mcp(supply_array, demand_array)
+    sorted_diffs, prices_differences = calculate_mcp(
+        supply_array, demand_array)
     diff_result = mcp_diff_search(sorted_diffs)
     mcp = find_mcp_price(prices_differences, diff_result) 
 
-    print_ln('\n--- Calculated Market Clearing Price: %s ---\n', mcp.reveal())
+    print_ln('\n Calculated MCP: %s \n', mcp.reveal())
