@@ -49,11 +49,11 @@ run_player() {
 	  { if test $i = 0; then tee $log; else cat > $log; fi; } &
       codes[$i]=$!
     done
-    for i in $(seq 0 $[players-1]); do
+    for i in $(seq 0 $[players-1]); do  
 	wait ${codes[$i]} || return 1
     done
 }
 
-players=${PLAYERS:-2}
+players=${PLAYERS:-3}
 
 SPDZROOT=${SPDZROOT:-.}

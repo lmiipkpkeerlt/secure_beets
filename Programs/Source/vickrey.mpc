@@ -6,9 +6,11 @@ import re
 r = re.search('(\D*)(\d*)', program.name)
 
 if r.group(2):
+    print_ln('r.group is')
     n_inputs = int(r.group(2))
 else:
-    n_inputs = 100
+    print_ln('r.group is not')
+    n_inputs = 2
 
 n_parties = 2
 n_threads = int(math.ceil(2 ** (int(math.log(n_inputs, 2) - 7))))
@@ -30,7 +32,7 @@ def f(_):
     bids = Bid.get_array(n_inputs, value_type)
 
     for i in range(n_inputs):
-        # i * 10 because inputs are all zero by default
+        # i * 10 because inputs are all zerovickre by default
         bids[i] = Bid(i, value_type.get_input_from(i % n_parties) + i * 10)
         #bids = [Bid(i, value_type(i * 10)) for i in range(n_parties)]
 
@@ -55,6 +57,7 @@ def f(_):
 
     def thread():
         i = get_arg()
+        print_ln('fjkagnfjkæanfkldsnfklæas %s', i.reveal())
         n_per_thread = n_inputs // n_threads
         if n_per_thread % 2 != 0:
             raise Exception('Number of inputs must be divisible by 2')
