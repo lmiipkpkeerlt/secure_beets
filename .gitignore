@@ -118,3 +118,6 @@ Thumbs.db
 
 # Sphinx build
 _build/
+
+# environment
+.env
